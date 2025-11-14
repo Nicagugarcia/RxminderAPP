@@ -8,6 +8,10 @@ import {
   ScrollView,
 } from "react-native";
 import { useMedications } from "../../store/medicationStore";
+import DateTimePicker, {
+  DateTimePickerEvent,
+} from "@react-native-community/datetimepicker";
+import { Platform } from "react-native";
 
 export default function CreateMedication({ navigation }: any) {
   const { addMedication } = useMedications();
@@ -15,8 +19,10 @@ export default function CreateMedication({ navigation }: any) {
   const [name, setName] = useState("");
   const [dosage, setDosage] = useState("");
   const [frequency, setFrequency] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
   const [notes, setNotes] = useState("");
 
   const handleAddMedication = () => {
@@ -26,8 +32,8 @@ export default function CreateMedication({ navigation }: any) {
       name,
       dosage,
       frequency,
-      startDate,
-      endDate,
+      startDate: startDate ? startDate.toISOString() : "",
+      endDate: endDate ? endDate.toISOString() : "",
       notes,
     });
 
@@ -52,7 +58,7 @@ export default function CreateMedication({ navigation }: any) {
         <Text style={styles.label}>Medication Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Amoxicillin"
+          placeholder="e.g. Ibuprofen"
           value={name}
           onChangeText={setName}
         />
@@ -73,21 +79,50 @@ export default function CreateMedication({ navigation }: any) {
           onChangeText={setFrequency}
         />
 
+        {/* Start Date */}
         <Text style={styles.label}>Start Date</Text>
-        <TextInput
+        <TouchableOpacity
           style={styles.input}
-          placeholder="e.g. 2025-11-12"
-          value={startDate}
-          onChangeText={setStartDate}
-        />
+          onPress={() => setShowStartPicker(true)}
+        >
+          <Text>
+            {startDate ? startDate.toDateString() : "Select start date"}
+          </Text>
+        </TouchableOpacity>
+        {showStartPicker && (
+          <DateTimePicker
+            value={startDate || new Date()}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+              setShowStartPicker(false);
+              if (selectedDate) setStartDate(selectedDate);
+            }}
+          />
+        )}
 
+        {/* End Date */}
         <Text style={styles.label}>End Date</Text>
-        <TextInput
+        <TouchableOpacity
           style={styles.input}
-          placeholder="e.g. 2025-11-20"
-          value={endDate}
-          onChangeText={setEndDate}
-        />
+          onPress={() => setShowEndPicker(true)}
+        >
+          <Text>
+            {endDate ? endDate.toDateString() : "Select end date"}
+          </Text>
+        </TouchableOpacity>
+        {showEndPicker && (
+          <DateTimePicker
+            value={endDate || new Date()}
+            mode="date"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
+              setShowEndPicker(false);
+              if (selectedDate) setEndDate(selectedDate);
+            }}
+          />
+        )}
+
 
         <Text style={styles.label}>Notes</Text>
         <TextInput
