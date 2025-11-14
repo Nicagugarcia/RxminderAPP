@@ -14,6 +14,8 @@ export type Medication = {
 type MedicationContextType = {
   medications: Medication[];
   addMedication: (med: Omit<Medication, "id">) => void;
+  updateMedication: (id: string, med: Omit<Medication, "id">) => void;
+  deleteMedication: (id: string) => void;
 };
 
 const MedicationContext = createContext<MedicationContextType | undefined>(
@@ -24,14 +26,23 @@ export function MedicationProvider({ children }: { children: ReactNode }) {
   const [medications, setMedications] = useState<Medication[]>([]);
 
   const addMedication = (med: Omit<Medication, "id">) => {
-    setMedications((prev) => [
-      ...prev,
-      { id: Date.now().toString(), ...med },
-    ]);
+    setMedications((prev) => [...prev, { id: Date.now().toString(), ...med }]);
+  };
+
+  const updateMedication = (id: string, med: Omit<Medication, "id">) => {
+    setMedications((prev) =>
+      prev.map((m) => (m.id === id ? { id, ...med } : m))
+    );
+  };
+
+  const deleteMedication = (id: string) => {
+    setMedications((prev) => prev.filter((m) => m.id !== id));
   };
 
   return (
-    <MedicationContext.Provider value={{ medications, addMedication }}>
+    <MedicationContext.Provider
+      value={{ medications, addMedication, updateMedication, deleteMedication }}
+    >
       {children}
     </MedicationContext.Provider>
   );

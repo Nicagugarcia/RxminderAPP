@@ -1,3 +1,4 @@
+// src/screens/main/medicationMenu.tsx
 import {
   View,
   Text,
@@ -5,17 +6,17 @@ import {
   TouchableOpacity,
   ScrollView,
 } from "react-native";
+import { useState } from "react";
 import { useMedications } from "../../store/medicationStore";
 
 export default function MedicationMenu({ navigation }: any) {
-  const { medications } = useMedications();
+  const { medications, deleteMedication } = useMedications();
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   return (
     <View style={styles.container}>
-      {/* Title */}
       <Text style={styles.title}>Medications</Text>
 
-      {/* List or empty state */}
       {medications.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No medications yet</Text>
@@ -27,18 +28,52 @@ export default function MedicationMenu({ navigation }: any) {
         >
           {medications.map((med) => (
             <View key={med.id} style={styles.card}>
-              <Text style={styles.cardTitle}>{med.name}</Text>
-              <Text style={styles.cardText}>{med.dosage}</Text>
-              <Text style={styles.cardText}>{med.frequency}</Text>
+              <View style={styles.cardTextContainer}>
+                <Text style={styles.cardTitle}>{med.name}</Text>
+                <Text style={styles.cardText}>{med.dosage}</Text>
+                <Text style={styles.cardText}>{med.frequency}</Text>
+              </View>
+
+              <View style={styles.cardMenuContainer}>
+                <TouchableOpacity
+                  onPress={() =>
+                    setOpenMenuId(openMenuId === med.id ? null : med.id)
+                  }
+                >
+                  <Text style={styles.menuDots}>⋯</Text>
+                </TouchableOpacity>
+
+                {openMenuId === med.id && (
+                  <View style={styles.menu}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setOpenMenuId(null);
+                        navigation.navigate("EditMedication", { id: med.id });
+                      }}
+                    >
+                      <Text style={styles.menuItem}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        deleteMedication(med.id);
+                        setOpenMenuId(null);
+                      }}
+                    >
+                      <Text style={[styles.menuItem, styles.deleteItem]}>
+                        Delete
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </View>
           ))}
         </ScrollView>
       )}
 
-      {/* Add button */}
       <TouchableOpacity
         style={styles.addButton}
-        onPress={() => navigation.navigate("createMedication")}
+        onPress={() => navigation.navigate("CreateMedication")}
       >
         <Text style={styles.addButtonText}>+ Add Medication</Text>
       </TouchableOpacity>
@@ -75,6 +110,13 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  cardTextContainer: {
+    flexShrink: 1,
+    paddingRight: 10,
   },
   cardTitle: {
     fontSize: 20,
@@ -84,6 +126,30 @@ const styles = StyleSheet.create({
   cardText: {
     fontSize: 14,
     color: "#4b5563",
+  },
+  cardMenuContainer: {
+    alignItems: "flex-end",
+  },
+  menuDots: {
+    fontSize: 22,
+    paddingHorizontal: 8,
+  },
+  menu: {
+    marginTop: 4,
+    backgroundColor: "white",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingVertical: 4,
+    minWidth: 100,
+  },
+  menuItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    fontSize: 14,
+  },
+  deleteItem: {
+    color: "#b91c1c",
   },
   addButton: {
     backgroundColor: "#2563eb",
