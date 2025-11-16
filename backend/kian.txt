@@ -1,0 +1,22 @@
+15/11/2025
+
+Hey guys, so here's what I've done so far for everyone's reference.
+
+seed.py is the file that will set up the local sqlite3 database. that's what I'm using so far for local development.
+It contains the DB schemas and whatnot.
+
+I also set up a venv, libraries and dependencies are detailed in requirements.txt and can be installed as such:
+python -m venv (whatever venv name u prefer)
+source (whatever venv name u prefer)/bin/activate
+pip install -r /pathto/requirements.txt
+
+models.py contains the models that are used to interact with the DB. their fields correspond to table fields.
+utils.py contains useful helper functions
+
+main.py is where all the endpoints and pydantic validations are for now. that can always be rearranged.
+
+i did my own testing using pytest in tests.py file. I basically outsourced it to chat but tbf it wrote good tests coz it took me a fuck ton of time to debug.
+
+there are some instances of me using env variables, so just remember to set that up yourself with os, dotenv and whatnot. btw we really should nail down constraint values such as max freq.
+
+If y'all have any questions about the code I wrote do ask. It's mostly vibe coded but I spent so much timem debugging and looking at it that I think I understand it fairly well tbh.
