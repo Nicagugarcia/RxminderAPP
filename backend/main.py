@@ -452,6 +452,18 @@ def update_prescription(med_id: int, payload: PrescriptionUpdate):
             "schedule": {"id": new_schedule.id, "start_date": new_schedule.start_date, "end_date": new_schedule.end_date, "next_reminder": new_schedule.next_reminder},
             "created_reminder_count": len(reminder_objs),
         }
+    
+@app.delete("/prescriptions/{med_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_prescription(med_id: int):
+    # will delete a prescription and cascade-delete its schedules and reminders.
+    with Session(engine) as session:
+        med = session.get(Medication, med_id)
+        if not med:
+            raise HTTPException(status_code=404, detail="medication not found")
+
+        session.delete(med)
+        session.commit()
+        return None
 
 
 if __name__ == "__main__":
