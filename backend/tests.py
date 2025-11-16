@@ -252,3 +252,54 @@ def test_delete_user_cascade_only(client):
         assert schedules == []
         reminders = sess.exec(select(Reminder).where(Reminder.schedule_id == schedule_id)).all()
         assert reminders == []
+
+def test_prescription_delete_cascade(client):
+    # Create user
+    payload = {"username": "d1", "email": "d1@example.com", "password": "pw12345"}
+    r = client.post("/users", json=payload)
+    assert_response_ok(r, expected_status=201)
+    user_id = r.json()["id"]
+
+    # Create a prescription (single day, freq 2)
+    pres_payload = {
+        "user_id": user_id,
+        "drug_name": "ToDelete",
+        "dosage": "5 mg",
+        "frequency": 2,
+        "start_date": date.today().isoformat(),
+        "end_date": date.today().isoformat(),
+        "start_time": "08:00",
+    }
+    r2 = client.post("/prescriptions", json=pres_payload)
+    assert_response_ok(r2, expected_status=201)
+    data = r2.json()
+    med_id = data["medication"]["id"]
+    schedule_id = data["schedule"]["id"]
+
+    # Verify DB rows exist
+    with Session(main.engine) as sess:
+        assert sess.get(Medication, med_id) is not None
+        assert sess.get(Schedule, schedule_id) is not None
+        reminders = sess.exec(select(Reminder).where(Reminder.schedule_id == schedule_id)).all()
+        assert len(reminders) > 0
+
+    # Delete the prescription
+    dr = client.delete(f"/prescriptions/{med_id}")
+    assert_response_ok(dr, expected_status=204)
+
+    # Verify medication, schedule, reminders are all gone
+    with Session(main.engine) as sess:
+        assert sess.get(Medication, med_id) is None
+        schedules = sess.exec(select(Schedule).where(Schedule.medication_id == med_id)).all()
+        assert schedules == []
+        reminders = sess.exec(select(Reminder).where(Reminder.schedule_id == schedule_id)).all()
+        assert reminders == []
+
+    # User should still exist
+    with Session(main.engine) as sess:
+        assert sess.get(User, user_id) is not None
+
+def test_prescription_delete_not_found(client):
+    r = client.delete("/prescriptions/9999")
+    assert r.status_code == 404
+
