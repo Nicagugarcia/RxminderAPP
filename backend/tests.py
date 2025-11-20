@@ -348,7 +348,7 @@ def test_list_prescriptions(client):
     count2 = created2["created_reminder_count"]
 
     # call list endpoint
-    rl = client.get("/prescriptions", params={"user_id": user_id})
+    rl = client.get(f"/prescriptions/{user_id}")
     assert_response_ok(rl, expected_status=200)
     data = rl.json()
     assert isinstance(data, list)
@@ -370,3 +370,90 @@ def test_list_prescriptions(client):
             assert "start_date" in sched and "next_reminder" in sched
         assert isinstance(entry["reminder_count"], int)
         assert entry["reminder_count"] == expected_count
+
+
+# Verify that PUT /prescriptions/{med_id} updates medication fields,
+# regenerates reminders according to new frequency/start_time, and
+# returns the updated medication + schedule + created_reminder_count.
+def test_update_prescription_basic(client):
+    # create user
+    payload = {"username": "upduser", "email": "upd@example.com", "password": "pw12345"}
+    r = client.post("/users", json=payload)
+    assert_response_ok(r, expected_status=201)
+    user_id = r.json()["id"]
+
+    # create initial prescription: 2 days, freq 3
+    start = date.today()
+    end = start + timedelta(days=1)
+    pres = {
+        "user_id": user_id,
+        "drug_name": "UpdateDrug",
+        "dosage": "10 mg",
+        "frequency": 3,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "start_time": "08:00",
+    }
+    r1 = client.post("/prescriptions", json=pres)
+    assert_response_ok(r1, expected_status=201)
+    created = r1.json()
+    med_id = created["medication"]["id"]
+
+    # perform update: change frequency to 2 and start_time
+    upd = {"frequency": 2, "start_time": "09:00", "drug_name": "UpdatedName", "message": "New note"}
+    r2 = client.put(f"/prescriptions/{med_id}", json=upd)
+    assert_response_ok(r2, expected_status=200)
+    updated = r2.json()
+    # frequency updated and reminder count recalculated (2 days * 2 times/day)
+    assert updated["medication"]["frequency"] == 2
+    assert updated["created_reminder_count"] == 2 * 2
+    assert updated["medication"]["drug_name"] == "UpdatedName"
+
+
+
+# Test PUT /prescriptionss returns 422 for bad formats and 400 for business logic errors
+def test_update_prescription_validation_errors(client):
+    # create user and prescription
+    payload = {"username": "valuser", "email": "val@example.com", "password": "pw12345"}
+    r = client.post("/users", json=payload)
+    assert_response_ok(r, expected_status=201)
+    user_id = r.json()["id"]
+
+    pres = {
+        "user_id": user_id,
+        "drug_name": "ValDrug",
+        "dosage": "5 mg",
+        "frequency": 2,
+        "start_date": date.today().isoformat(),
+        "end_date": date.today().isoformat(),
+        "start_time": "08:00",
+    }
+    r1 = client.post("/prescriptions", json=pres)
+    assert_response_ok(r1, expected_status=201)
+    med_id = r1.json()["medication"]["id"]
+
+    # invalid date format -> 422
+    r_bad_date = client.put(f"/prescriptions/{med_id}", json={"start_date": "not-a-date"})
+    assert r_bad_date.status_code == 422
+
+    # end_date before start_date -> 400
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    today = date.today().isoformat()
+    r_end_before = client.put(f"/prescriptions/{med_id}", json={"start_date": today, "end_date": yesterday})
+    assert r_end_before.status_code == 400
+
+    # frequency too large -> 422
+    too_many = main.MAX_TIMES_PER_DAY + 1
+    r_freq = client.put(f"/prescriptions/{med_id}", json={"frequency": too_many})
+    assert r_freq.status_code == 422
+
+    # dosage out of bounds -> 422
+    too_big = main.DOSAGE_MAX + 1000
+    r_dose = client.put(f"/prescriptions/{med_id}", json={"dosage": f"{too_big} mg"})
+    assert r_dose.status_code == 422
+
+
+# Test PUT /prescriptions updating non-existent prescription returns 404
+def test_update_prescription_not_found(client):
+    r = client.put("/prescriptions/9999", json={"frequency": 2})
+    assert r.status_code == 404
