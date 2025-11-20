@@ -44,7 +44,7 @@ def client(tmp_path):
         SQLModel.metadata.drop_all(engine)
         engine.dispose()
 
-
+# tests POST /users and duplicate user handling
 def test_create_user_and_duplicate(client):
     payload = {"username": "alice", "email": "alice@example.com", "password": "sadddd"}
     resp = client.post("/users", json=payload)
@@ -56,7 +56,7 @@ def test_create_user_and_duplicate(client):
     resp2 = client.post("/users", json=payload)
     assert resp2.status_code == 409
 
-
+# tests POST, PUT, DELETE /prescriptions and DELETE /users (with cascade)
 def test_prescription_create_and_update_and_delete_cascade(client):
     # create user
     payload = {"username": "bob", "email": "bob@example.com", "password": "hunter2"}
@@ -107,7 +107,7 @@ def test_prescription_create_and_update_and_delete_cascade(client):
         reminders = sess.exec(select(Reminder).where(Reminder.schedule_id == schedule_id)).all()
         assert reminders == []
 
-
+# tests POST /prescriptions with bad date format
 def test_prescription_bad_date_validation(client):
     # create user
     payload = {"username": "cathy", "email": "cathy@example.com", "password": "pw12345"}
@@ -126,7 +126,7 @@ def test_prescription_bad_date_validation(client):
     # FastAPI/Pydantic will return 422 for validation error
     assert r2.status_code == 422
 
-
+# tests POST /prescriptions with invalid start_date (in the past)
 def test_start_date_not_in_past(client):
     # create user
     payload = {"username": "pastuser", "email": "past@example.com", "password": "pw12345"}
@@ -146,7 +146,7 @@ def test_start_date_not_in_past(client):
     r2 = client.post("/prescriptions", json=pres)
     assert r2.status_code == 422
 
-
+# tests POST /prescriptions with frequency exceeding MAX_TIMES_PER_DAY
 def test_times_per_day_limits(client):
     # create user
     payload = {"username": "frequser", "email": "freq@example.com", "password": "pw12345"}
@@ -171,7 +171,7 @@ def test_times_per_day_limits(client):
     r_ok = client.post("/prescriptions", json=pres_ok)
     assert_response_ok(r_ok, expected_status=201)
 
-
+# tests POST /prescriptions with dosage outside allowed bounds
 def test_dosage_bounds(client):
     # create user
     payload = {"username": "doseuser", "email": "dose@example.com", "password": "pw12345"}
@@ -206,7 +206,7 @@ def test_dosage_bounds(client):
     r_max = client.post("/prescriptions", json=pres_max)
     assert_response_ok(r_max, expected_status=201)
 
-
+# tests DELETE /users with cascade deletion of related prescriptions
 def test_delete_user_cascade_only(client):
     # create user
     payload = {"username": "deluser", "email": "del@example.com", "password": "pw12345"}
@@ -253,6 +253,7 @@ def test_delete_user_cascade_only(client):
         reminders = sess.exec(select(Reminder).where(Reminder.schedule_id == schedule_id)).all()
         assert reminders == []
 
+# tests DELETE /prescriptions with cascade deletion of schedule and reminders
 def test_prescription_delete_cascade(client):
     # Create user
     payload = {"username": "d1333", "email": "d1@example.com", "password": "pw12345"}
@@ -299,10 +300,12 @@ def test_prescription_delete_cascade(client):
     with Session(main.engine) as sess:
         assert sess.get(User, user_id) is not None
 
+# tests DELETE /prescriptions for non-existent prescription
 def test_prescription_delete_not_found(client):
     r = client.delete("/prescriptions/9999")
     assert r.status_code == 404
 
+# tests GET /prescriptions listing for a user
 def test_list_prescriptions(client):
     # create user
     payload = {"username": "listuser", "email": "list@example.com", "password": "pw12345"}
