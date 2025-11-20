@@ -232,7 +232,54 @@ def delete_user(user_id: int):
         session.delete(user)
         session.commit()
         return None
+    
 
+@app.get("/prescriptions", status_code=status.HTTP_200_OK)
+def list_prescriptions(user_id: Optional[int] = None):
+    """
+    List prescriptions for a user.
+    - Query param: user_id (optional). Defaults to 1 for dev/testing.
+    - Response: list of objects:
+      {
+        "medication": { id, drug_name, dosage, frequency, message, user_id },
+        "schedule": { id, start_date, end_date, next_reminder } | null,
+        "reminder_count": int
+      }
+    """
+
+    with Session(engine) as session:
+        meds = session.exec(select(Medication).where(Medication.user_id == user_id)).all()
+
+        out = []
+        for med in meds:
+            # get latest schedule for this medication (by created_at desc)
+            sched_stmt = select(Schedule).where(Schedule.medication_id == med.id).order_by(text("created_at DESC"))
+            schedule = session.exec(sched_stmt).first()
+
+            reminder_count = 0
+            if schedule:
+                reminders = session.exec(select(Reminder).where(Reminder.schedule_id == schedule.id)).all()
+                reminder_count = len(reminders)
+
+            out.append({
+                "medication": {
+                    "id": med.id,
+                    "user_id": med.user_id,
+                    "drug_name": med.drug_name,
+                    "dosage": med.dosage,
+                    "frequency": med.frequency,
+                    "message": med.message,
+                },
+                "schedule": {
+                    "id": schedule.id,
+                    "start_date": schedule.start_date,
+                    "end_date": schedule.end_date,
+                    "next_reminder": schedule.next_reminder,
+                } if schedule else None,
+                "reminder_count": reminder_count,
+            })
+
+        return out
 
 @app.post("/prescriptions", status_code=status.HTTP_201_CREATED)
 def create_prescription(payload: PrescriptionCreate):

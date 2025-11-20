@@ -255,7 +255,7 @@ def test_delete_user_cascade_only(client):
 
 def test_prescription_delete_cascade(client):
     # Create user
-    payload = {"username": "d1", "email": "d1@example.com", "password": "pw12345"}
+    payload = {"username": "d1333", "email": "d1@example.com", "password": "pw12345"}
     r = client.post("/users", json=payload)
     assert_response_ok(r, expected_status=201)
     user_id = r.json()["id"]
@@ -303,3 +303,67 @@ def test_prescription_delete_not_found(client):
     r = client.delete("/prescriptions/9999")
     assert r.status_code == 404
 
+def test_list_prescriptions(client):
+    # create user
+    payload = {"username": "listuser", "email": "list@example.com", "password": "pw12345"}
+    r = client.post("/users", json=payload)
+    assert_response_ok(r, expected_status=201)
+    user_id = r.json()["id"]
+
+    # prescription 1: single day, frequency 2
+    start = date.today()
+    pres1 = {
+        "user_id": user_id,
+        "drug_name": "ListDrugOne",
+        "dosage": "5 mg",
+        "frequency": 2,
+        "start_date": start.isoformat(),
+        "end_date": start.isoformat(),
+        "start_time": "08:00",
+    }
+    r1 = client.post("/prescriptions", json=pres1)
+    assert_response_ok(r1, expected_status=201)
+    created1 = r1.json()
+    med1_id = created1["medication"]["id"]
+    count1 = created1["created_reminder_count"]
+
+    # prescription 2: two days, frequency 3
+    end = start + timedelta(days=1)
+    pres2 = {
+        "user_id": user_id,
+        "drug_name": "ListDrugTwo",
+        "dosage": "10 mg",
+        "frequency": 3,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "start_time": "09:00",
+    }
+    r2 = client.post("/prescriptions", json=pres2)
+    assert_response_ok(r2, expected_status=201)
+    created2 = r2.json()
+    med2_id = created2["medication"]["id"]
+    count2 = created2["created_reminder_count"]
+
+    # call list endpoint
+    rl = client.get("/prescriptions", params={"user_id": user_id})
+    assert_response_ok(rl, expected_status=200)
+    data = rl.json()
+    assert isinstance(data, list)
+
+    # find entries for the two medications
+    entry1 = next((e for e in data if e["medication"]["id"] == med1_id), None)
+    entry2 = next((e for e in data if e["medication"]["id"] == med2_id), None)
+    assert entry1 is not None, "Missing first medication in list response"
+    assert entry2 is not None, "Missing second medication in list response"
+
+    # verify fields and reminder counts
+    for entry, expected_count in ((entry1, count1), (entry2, count2)):
+        med = entry["medication"]
+        assert med["user_id"] == user_id
+        assert "drug_name" in med and "dosage" in med and "frequency" in med
+        # schedule may be present; when present check keys
+        if entry["schedule"] is not None:
+            sched = entry["schedule"]
+            assert "start_date" in sched and "next_reminder" in sched
+        assert isinstance(entry["reminder_count"], int)
+        assert entry["reminder_count"] == expected_count
