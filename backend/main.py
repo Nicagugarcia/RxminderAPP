@@ -234,11 +234,11 @@ def delete_user(user_id: int):
         return None
     
 
-@app.get("/prescriptions", status_code=status.HTTP_200_OK)
-def list_prescriptions(user_id: Optional[int] = None):
+@app.get("/prescriptions/{user_id}", status_code=status.HTTP_200_OK)
+def list_prescriptions(user_id: int):
     """
     List prescriptions for a user.
-    - Query param: user_id (optional). Defaults to 1 for dev/testing.
+    - Query param: user_id
     - Response: list of objects:
       {
         "medication": { id, drug_name, dosage, frequency, message, user_id },
