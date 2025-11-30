@@ -23,11 +23,12 @@ import os
 from dotenv import load_dotenv
 from typing import Optional, List
 from datetime import datetime, date, time, timedelta
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Query
 from pydantic import BaseModel, Field, EmailStr, validator
 from sqlmodel import create_engine, Session, select
 from sqlalchemy import event, text
 from models import *
+from models import Pharmacy
 from utils import *
 
 # Configuration
@@ -199,6 +200,18 @@ class PrescriptionUpdate(BaseModel):
             raise ValueError("start_date cannot be in the past")
         return v
 
+
+
+class PharmacyCreate(BaseModel):
+    name: str
+    address: str
+    city: str
+    state: str
+    zip_code: str
+    phone: Optional[str] = None
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    is_24_hours: bool = False
 
 
 

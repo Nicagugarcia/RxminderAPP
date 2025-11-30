@@ -51,6 +51,21 @@ CREATE TABLE IF NOT EXISTS reminders (
 );
 """
 
+create_pharmacies_table = """
+CREATE TABLE IF NOT EXISTS pharmacies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    address TEXT NOT NULL,
+    city TEXT NOT NULL,
+    state TEXT NOT NULL,
+    zip_code TEXT NOT NULL,
+    phone TEXT,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    is_24_hours INTEGER NOT NULL DEFAULT 0
+);
+"""
+
 # main function to create the database and tables
 def main():
     conn = sqlite3.connect(DB)
@@ -59,6 +74,7 @@ def main():
     cur.execute(create_medications_table)
     cur.execute(create_schedule_table)
     cur.execute(create_reminders_table)
+    cur.execute(create_pharmacies_table)
     conn.commit()
     conn.close()
     print(f"Database created at {DB}")

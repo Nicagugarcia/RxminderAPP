@@ -38,3 +38,16 @@ class Reminder(SQLModel, table=True):
     reminder_time: str  # ISO datetime string
     status: str = "pending"  # default status
     message: Optional[str] = None
+
+class Pharmacy(SQLModel, table=True):
+    __tablename__ = "pharmacies"
+    id: Optional[int] = ORMField(default=None, primary_key=True)
+    name: str
+    address: str
+    city: str
+    state: str
+    zip_code: str
+    phone: Optional[str] = None
+    latitude: float
+    longitude: float
+    is_24_hours: bool = False

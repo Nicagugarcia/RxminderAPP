@@ -41,3 +41,19 @@ def generate_daily_times(frequency: int, start_time_str: str) -> List[time]:
         ss = sec % 60
         times.append(time(hour=hh, minute=mm, second=ss))
     return times
+
+def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate distance between two points in miles using Haversine formula."""
+    from math import radians, sin, cos, sqrt, atan2
+    
+    R = 3959  # Earth radius in miles
+    
+    lat1_rad = radians(lat1)
+    lat2_rad = radians(lat2)
+    delta_lat = radians(lat2 - lat1)
+    delta_lon = radians(lon2 - lon1)
+    
+    a = sin(delta_lat / 2) ** 2 + cos(lat1_rad) * cos(lat2_rad) * sin(delta_lon / 2) ** 2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    
+    return R * c
