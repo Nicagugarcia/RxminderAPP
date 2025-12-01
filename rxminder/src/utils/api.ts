@@ -13,6 +13,14 @@ export type PrescriptionListEntry = {
   reminder_count: number;
 };
 
+export type ReminderEntry = {
+  trigger_time: string;
+  med_name: string;
+  dosage?: string;
+  message?: string | null;
+  reminder_id?: number;
+};
+
 async function handleResponse(res: Response) {
   const text = await res.text();
   let body: any = null;
@@ -31,7 +39,7 @@ async function handleResponse(res: Response) {
 }
 
 export async function getPrescriptions(user_id?: number): Promise<PrescriptionListEntry[]> {
-  const params = user_id ? `?user_id=${encodeURIComponent(String(user_id))}` : "";
+  const params = user_id ? `/${encodeURIComponent(String(user_id))}` : "";
   const res = await fetch(`${API_BASE}/prescriptions${params}`, { method: "GET" });
   return handleResponse(res);
 }
@@ -58,4 +66,9 @@ export async function deletePrescription(med_id: number) {
   const res = await fetch(`${API_BASE}/prescriptions/${med_id}`, { method: "DELETE" });
   if (!res.ok) throw { status: res.status };
   return null;
+}
+
+export async function getRemindersForUser(user_id: number): Promise<ReminderEntry[]> {
+  const res = await fetch(`${API_BASE}/reminders/${encodeURIComponent(String(user_id))}`, { method: "GET" });
+  return handleResponse(res) as Promise<ReminderEntry[]>;
 }
