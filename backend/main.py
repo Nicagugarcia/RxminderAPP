@@ -58,6 +58,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6)
 
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
 
 class PrescriptionCreate(BaseModel):
     user_id: int
@@ -213,7 +216,7 @@ def create_user(payload: UserCreate):
         if existing:
             raise HTTPException(status_code=409, detail="username or email already exists")
 
-        user = User(username=payload.username, email=payload.email, password_hash=hash_password(payload.password))
+        user = User(username=payload.username, email=payload.email, password_hash=hash_password(payload.password), parent_user_id=None,)
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -234,6 +237,57 @@ def delete_user(user_id: int):
         return None
     
 
+@app.post("/login", status_code=status.HTTP_200_OK)
+def login(payload:LoginRequest):
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == payload.email)).first()
+        if not user or not verify_password(payload.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="invalid credentials")
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "parent_user_id": user.parent_user_id,
+        }
+
+@app.post("/users/{parent_id}/subusers", status_code=status.HTTP_201_CREATED)
+def create_subuser(parent_id: int, payload: UserCreate):
+    with Session(engine) as session:
+        parent = session.get(User, parent_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="parent user not found")
+
+        existing = session.exec(
+            select(User).where(
+                (User.username == payload.username) |
+                (User.email == payload.email)
+            )
+        ).first()
+
+        if existing:
+            raise HTTPException(status_code=409, detail="username or email already exists")
+
+        sub = User(
+            username=payload.username,
+            email=payload.email,
+            password_hash=hash_password(payload.password),
+            parent_user_id=parent_id
+        )
+
+        session.add(sub)
+        session.commit()
+        session.refresh(sub)
+
+        return {
+            "id": sub.id,
+            "username": sub.username,
+            "email": sub.email,
+            "parent_user_id": sub.parent_user_id
+        }
+
+
+
+
 @app.get("/prescriptions/{user_id}", status_code=status.HTTP_200_OK)
 def list_prescriptions(user_id: int):
     """
@@ -248,8 +302,12 @@ def list_prescriptions(user_id: int):
     """
 
     with Session(engine) as session:
-        meds = session.exec(select(Medication).where(Medication.user_id == user_id)).all()
-
+        user = session.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="user not found")
+        owner_id = user.parent_user_id or user.id
+        meds = session.exec(select(Medication).where(Medication.user_id == owner_id)).all()
+        
         out = []
         for med in meds:
             # get latest schedule for this medication (by created_at desc)
@@ -280,6 +338,42 @@ def list_prescriptions(user_id: int):
             })
 
         return out
+    
+def create_subuser(parent_id: int, payload: UserCreate):
+    """
+    Create a subuser linked to a parent user.
+    - parent_id: ID of the main/primary user.
+    """
+    with Session(engine) as session:
+        parent = session.get(User, parent_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="parent user not found")
+
+        # enforce unique username/email across all users
+        existing = session.exec(
+            select(User).where(
+                (User.username == payload.username) | (User.email == payload.email)
+            )
+        ).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="username or email already exists")
+
+        sub = User(
+            username=payload.username,
+            email=payload.email,
+            password_hash=hash_password(payload.password),
+            parent_user_id=parent_id,
+        )
+        session.add(sub)
+        session.commit()
+        session.refresh(sub)
+
+        return {
+            "id": sub.id,
+            "username": sub.username,
+            "email": sub.email,
+            "parent_user_id": sub.parent_user_id,
+        }
 
 @app.post("/prescriptions", status_code=status.HTTP_201_CREATED)
 def create_prescription(payload: PrescriptionCreate):

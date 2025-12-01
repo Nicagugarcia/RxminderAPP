@@ -77,6 +77,14 @@ export default function MedicationMenu({ navigation }: any) {
       >
         <Text style={styles.addButtonText}>+ Add Medication</Text>
       </TouchableOpacity>
+
+      {/* NEW BUTTON FOR SUBUSER MANAGEMENT */}
+      <TouchableOpacity
+        style={[styles.addButton, { backgroundColor: "#10b981" }]}
+        onPress={() => navigation.navigate("Subusers")}
+      >
+        <Text style={styles.addButtonText}>Manage Subusers</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -155,7 +163,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#2563eb",
     paddingVertical: 16,
     borderRadius: 10,
-    marginBottom: 30,
+    marginBottom: 20,
     alignItems: "center",
   },
   addButtonText: {
