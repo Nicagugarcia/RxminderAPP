@@ -607,6 +607,80 @@ def delete_prescription(med_id: int):
         return None
 
 
+@app.get("/reminders/{user_id}", status_code=status.HTTP_200_OK)
+def get_user_reminders(user_id: int):
+    """
+    For each medication owned by `user_id`, return one reminder entry constructed
+    from the schedule.next_reminder. After constructing the response for a
+    schedule, mark the corresponding reminder record with that reminder_time
+    as status='scheduled', then advance the schedule.next_reminder to the
+    earliest reminder for that schedule that remains with status='pending'.
+
+    Response: a JSON list of objects:
+    {
+      "trigger_time": <ISO string>,
+      "med_name": <string>,
+      "dosage": <string>,
+      "message": <string>
+    }
+    """
+
+    out = []
+    with Session(engine) as session:
+        # fetch all medications for this user
+        meds = session.exec(select(Medication).where(Medication.user_id == user_id)).all()
+
+        for med in meds:
+            # get the most-recent schedule for this medication (by created_at desc)
+            sched_stmt = select(Schedule).where(Schedule.medication_id == med.id).order_by(text("created_at DESC"))
+            schedule = session.exec(sched_stmt).first()
+            if not schedule:
+                # no schedule for this medication -> skip
+                continue
+
+            next_rem = schedule.next_reminder
+            if not next_rem:
+                # nothing scheduled currently -> skip
+                continue
+
+            # construct response entry using schedule.next_reminder and medication fields
+            entry = {
+                "trigger_time": next_rem,
+                "med_name": med.drug_name,
+                "dosage": med.dosage,
+                "message": med.message or "",
+            }
+            out.append(entry)
+
+            # find the reminder record that corresponds to this next_reminder and mark it 'scheduled'
+            rem_stmt = select(Reminder).where(
+                Reminder.schedule_id == schedule.id,
+                Reminder.reminder_time == next_rem
+            )
+            rem = session.exec(rem_stmt).first()
+            if rem:
+                rem.status = "scheduled"
+                session.add(rem)
+
+            # find the earliest pending reminder for this schedule and set schedule.next_reminder to it
+            pending_stmt = select(Reminder).where(
+                Reminder.schedule_id == schedule.id,
+                Reminder.status == "pending"
+            ).order_by(text("reminder_time ASC"))
+            next_pending = session.exec(pending_stmt).first()
+            if next_pending:
+                schedule.next_reminder = next_pending.reminder_time
+            else:
+                schedule.next_reminder = None
+
+            session.add(schedule)
+
+        # persist all changes
+        session.commit()
+
+    return out
+
+
 if __name__ == "__main__":
     import uvicorn
 
