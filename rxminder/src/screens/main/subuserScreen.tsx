@@ -39,19 +39,11 @@ export default function SubuserScreen({ navigation }: any) {
     setUsername("");
     setPassword("");
 
-    // Navigate back automatically after success
     setTimeout(() => navigation.goBack(), 900);
   };
 
   return (
     <View style={styles.container}>
-      {/* BACK BUTTON */}
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>← Back</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.title}>Add Subuser</Text>
-
       <TextInput
         style={styles.input}
         placeholder="Subuser Email"
@@ -85,13 +77,6 @@ export default function SubuserScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, backgroundColor: "white" },
-  title: { fontSize: 26, fontWeight: "700", marginBottom: 20 },
-  back: {
-    fontSize: 18,
-    marginBottom: 10,
-    color: "#2563eb",
-    fontWeight: "600",
-  },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",
@@ -104,6 +89,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 10,
     alignItems: "center",
+    marginTop: 12,
   },
   buttonText: { color: "white", fontWeight: "700", fontSize: 16 },
   msg: {

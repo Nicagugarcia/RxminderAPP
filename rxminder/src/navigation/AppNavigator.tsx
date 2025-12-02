@@ -21,7 +21,7 @@ export default function AppNavigator() {
           <Stack.Screen name="MedicationMenu" component={medicationMenu} />
           <Stack.Screen name="CreateMedication" component={createMedication} />
           <Stack.Screen name="EditMedication" component={editMedication} />
-          <Stack.Screen name="Subusers" component={subuserScreen} />
+          <Stack.Screen name="Subusers" component={subuserScreen} options={{headerShown: true, title: "Add Subuser",}}/>
           <Stack.Screen name="PharmacyLocator" component={pharmacyLocatorScreen} />
         </>
       )}
