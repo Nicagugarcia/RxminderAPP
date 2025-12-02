@@ -35,7 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 # Configuration
-DATABASE_URL = "sqlite:///./dev.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
 engine = create_engine(DATABASE_URL, echo=False)
 
 # load environment configuration for runtime validation
@@ -66,7 +66,7 @@ app.add_middleware(
 )
 
 # Google Places API configuration
-GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "")
+GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "AIzaSyAno2d_J_p-9poT2iwaUL3WMC71XJ5C7TY")
 PLACES_API_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
 # Pydantic Validations
