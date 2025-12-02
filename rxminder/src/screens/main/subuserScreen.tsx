@@ -1,10 +1,16 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
 import { useAuth } from "../../store/authStore";
 
 const BASE_URL = "http://127.0.0.1:8000";
 
-export default function SubuserScreen() {
+export default function SubuserScreen({ navigation }: any) {
   const { currentUser } = useAuth();
 
   if (!currentUser) return null;
@@ -20,7 +26,7 @@ export default function SubuserScreen() {
     const res = await fetch(`${BASE_URL}/users/${currentUser.id}/subusers`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password })
+      body: JSON.stringify({ username, email, password }),
     });
 
     if (!res.ok) {
@@ -32,10 +38,18 @@ export default function SubuserScreen() {
     setEmail("");
     setUsername("");
     setPassword("");
+
+    // Navigate back automatically after success
+    setTimeout(() => navigation.goBack(), 900);
   };
 
   return (
     <View style={styles.container}>
+      {/* BACK BUTTON */}
+      <TouchableOpacity onPress={() => navigation.goBack()}>
+        <Text style={styles.back}>← Back</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>Add Subuser</Text>
 
       <TextInput
@@ -60,7 +74,7 @@ export default function SubuserScreen() {
         onChangeText={setPassword}
       />
 
-      {msg !== "" && <Text>{msg}</Text>}
+      {msg !== "" && <Text style={styles.msg}>{msg}</Text>}
 
       <TouchableOpacity style={styles.button} onPress={createSubuser}>
         <Text style={styles.buttonText}>Create Subuser</Text>
@@ -72,13 +86,30 @@ export default function SubuserScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, backgroundColor: "white" },
   title: { fontSize: 26, fontWeight: "700", marginBottom: 20 },
+  back: {
+    fontSize: 18,
+    marginBottom: 10,
+    color: "#2563eb",
+    fontWeight: "600",
+  },
   input: {
-    borderWidth: 1, borderColor: "#ccc", borderRadius: 8,
-    padding: 12, marginBottom: 12
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
   },
   button: {
     backgroundColor: "#2563eb",
-    padding: 16, borderRadius: 10, alignItems: "center"
+    padding: 16,
+    borderRadius: 10,
+    alignItems: "center",
   },
-  buttonText: { color: "white", fontWeight: "700", fontSize: 16 }
+  buttonText: { color: "white", fontWeight: "700", fontSize: 16 },
+  msg: {
+    textAlign: "center",
+    marginBottom: 10,
+    color: "green",
+    fontWeight: "600",
+  },
 });
