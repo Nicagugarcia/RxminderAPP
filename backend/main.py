@@ -5,6 +5,7 @@ Endpoints implemented here:
  - POST /users           -> create a user (stores password hash)
  - DELETE /users/{id}    -> delete a user (cascades manually)
  - POST /prescriptions   -> create medication, schedule, and generated reminders
+ - GET /pharmacies       -> search for nearby pharmacies using Google Places API
 
 The DB columns that represent
 dates/datetimes are stored as ISO-8601 strings (text) in SQLite using
@@ -27,8 +28,11 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, EmailStr, validator
 from sqlmodel import create_engine, Session, select
 from sqlalchemy import event, text
+import requests
 from models import *
 from utils import *
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Configuration
 DATABASE_URL = "sqlite:///./dev.db"
@@ -51,6 +55,19 @@ def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
         cursor.close()
 
 app = FastAPI(title="Rxminder Backend")
+
+# CORS middleware, intentionally loose for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Google Places API configuration
+GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "")
+PLACES_API_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
 
 # Pydantic Validations
 class UserCreate(BaseModel):
@@ -679,6 +696,81 @@ def get_user_reminders(user_id: int):
         session.commit()
 
     return out
+
+
+@app.get("/pharmacies")
+async def search_pharmacies(
+    latitude: float,
+    longitude: float,
+    radius: int = 5000,  # meters, default 5km
+):
+    """
+    Search for nearby pharmacies using Google Places API.
+    
+    Args:
+        latitude: User's latitude (-90 to 90)
+        longitude: User's longitude (-180 to 180)
+        radius: Search radius in meters (500 to 50000)
+    
+    Returns:
+        List of pharmacies with name, address, location, rating, etc.
+    """
+    # Validate inputs
+    if not (-90 <= latitude <= 90):
+        raise HTTPException(status_code=400, detail="Invalid latitude")
+    if not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="Invalid longitude")
+    if not (500 <= radius <= 50000):
+        raise HTTPException(status_code=400, detail="Radius must be between 500m and 50km")
+    
+    if not GOOGLE_PLACES_API_KEY:
+        raise HTTPException(
+            status_code=500, 
+            detail="Google Places API key not configured"
+        )
+    
+    # Build request to Google Places API
+    params = {
+        "location": f"{latitude},{longitude}",
+        "radius": radius,
+        "type": "pharmacy",
+        "key": GOOGLE_PLACES_API_KEY,
+    }
+    
+    try:
+        response = requests.get(PLACES_API_URL, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data.get("status") != "OK":
+            return {"pharmacies": [], "status": data.get("status"), "count": 0}
+        
+        # Transform results to our format
+        pharmacies = []
+        for place in data.get("results", []):
+            pharmacy = {
+                "place_id": place.get("place_id"),
+                "name": place.get("name"),
+                "address": place.get("vicinity"),
+                "latitude": place.get("geometry", {}).get("location", {}).get("lat"),
+                "longitude": place.get("geometry", {}).get("location", {}).get("lng"),
+                "rating": place.get("rating"),
+                "open_now": place.get("opening_hours", {}).get("open_now"),
+                "icon": place.get("icon"),
+            }
+            pharmacies.append(pharmacy)
+        
+        return {
+            "pharmacies": pharmacies,
+            "count": len(pharmacies),
+            "status": "OK"
+        }
+        
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch pharmacies: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
