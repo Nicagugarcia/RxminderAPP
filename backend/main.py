@@ -29,6 +29,7 @@ from sqlmodel import create_engine, Session, select
 from sqlalchemy import event, text
 from models import *
 from utils import *
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configuration
 DATABASE_URL = "sqlite:///./dev.db"
@@ -51,6 +52,15 @@ def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
         cursor.close()
 
 app = FastAPI(title="Rxminder Backend")
+
+# CORS middleware, intentionally loose for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Pydantic Validations
 class UserCreate(BaseModel):
