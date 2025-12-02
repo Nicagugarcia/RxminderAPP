@@ -12,8 +12,11 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL
+    password_hash TEXT NOT NULL,
+    parent_user_id INTEGER,
+    FOREIGN KEY(parent_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
 """
 
 create_medications_table = """

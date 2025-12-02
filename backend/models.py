@@ -10,6 +10,14 @@ class User(SQLModel, table=True):
     email: str = ORMField(index=True)
     password_hash: str
 
+    # for subuser logic; 
+    # if we have a subuser, it should point to its primary user
+    # if we are the primary user, set to None
+    parent_user_id: Optional[int] = ORMField(
+        default=None,
+        sa_column=Column(ForeignKey("users.id", ondelete="CASCADE"), nullable=True),
+    )
+
 
 class Medication(SQLModel, table=True):
     __tablename__ = "medications"

@@ -5,6 +5,7 @@ Endpoints implemented here:
  - POST /users           -> create a user (stores password hash)
  - DELETE /users/{id}    -> delete a user (cascades manually)
  - POST /prescriptions   -> create medication, schedule, and generated reminders
+ - GET /pharmacies       -> search for nearby pharmacies using Google Places API
 
 The DB columns that represent
 dates/datetimes are stored as ISO-8601 strings (text) in SQLite using
@@ -27,9 +28,11 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, EmailStr, validator
 from sqlmodel import create_engine, Session, select
 from sqlalchemy import event, text
+import requests
 from models import *
 from utils import *
 from fastapi.middleware.cors import CORSMiddleware
+
 
 # Configuration
 DATABASE_URL = "sqlite:///./dev.db"
@@ -62,12 +65,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Google Places API configuration
+GOOGLE_PLACES_API_KEY = os.getenv("GOOGLE_PLACES_API_KEY", "")
+PLACES_API_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+
 # Pydantic Validations
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3)
     email: EmailStr
     password: str = Field(..., min_length=6)
 
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
 
 class PrescriptionCreate(BaseModel):
     user_id: int
@@ -223,7 +233,7 @@ def create_user(payload: UserCreate):
         if existing:
             raise HTTPException(status_code=409, detail="username or email already exists")
 
-        user = User(username=payload.username, email=payload.email, password_hash=hash_password(payload.password))
+        user = User(username=payload.username, email=payload.email, password_hash=hash_password(payload.password), parent_user_id=None,)
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -244,6 +254,57 @@ def delete_user(user_id: int):
         return None
     
 
+@app.post("/login", status_code=status.HTTP_200_OK)
+def login(payload:LoginRequest):
+    with Session(engine) as session:
+        user = session.exec(select(User).where(User.email == payload.email)).first()
+        if not user or not verify_password(payload.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="invalid credentials")
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "parent_user_id": user.parent_user_id,
+        }
+
+@app.post("/users/{parent_id}/subusers", status_code=status.HTTP_201_CREATED)
+def create_subuser(parent_id: int, payload: UserCreate):
+    with Session(engine) as session:
+        parent = session.get(User, parent_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="parent user not found")
+
+        existing = session.exec(
+            select(User).where(
+                (User.username == payload.username) |
+                (User.email == payload.email)
+            )
+        ).first()
+
+        if existing:
+            raise HTTPException(status_code=409, detail="username or email already exists")
+
+        sub = User(
+            username=payload.username,
+            email=payload.email,
+            password_hash=hash_password(payload.password),
+            parent_user_id=parent_id
+        )
+
+        session.add(sub)
+        session.commit()
+        session.refresh(sub)
+
+        return {
+            "id": sub.id,
+            "username": sub.username,
+            "email": sub.email,
+            "parent_user_id": sub.parent_user_id
+        }
+
+
+
+
 @app.get("/prescriptions/{user_id}", status_code=status.HTTP_200_OK)
 def list_prescriptions(user_id: int):
     """
@@ -258,8 +319,12 @@ def list_prescriptions(user_id: int):
     """
 
     with Session(engine) as session:
-        meds = session.exec(select(Medication).where(Medication.user_id == user_id)).all()
-
+        user = session.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="user not found")
+        owner_id = user.parent_user_id or user.id
+        meds = session.exec(select(Medication).where(Medication.user_id == owner_id)).all()
+        
         out = []
         for med in meds:
             # get latest schedule for this medication (by created_at desc)
@@ -290,6 +355,42 @@ def list_prescriptions(user_id: int):
             })
 
         return out
+    
+def create_subuser(parent_id: int, payload: UserCreate):
+    """
+    Create a subuser linked to a parent user.
+    - parent_id: ID of the main/primary user.
+    """
+    with Session(engine) as session:
+        parent = session.get(User, parent_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="parent user not found")
+
+        # enforce unique username/email across all users
+        existing = session.exec(
+            select(User).where(
+                (User.username == payload.username) | (User.email == payload.email)
+            )
+        ).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="username or email already exists")
+
+        sub = User(
+            username=payload.username,
+            email=payload.email,
+            password_hash=hash_password(payload.password),
+            parent_user_id=parent_id,
+        )
+        session.add(sub)
+        session.commit()
+        session.refresh(sub)
+
+        return {
+            "id": sub.id,
+            "username": sub.username,
+            "email": sub.email,
+            "parent_user_id": sub.parent_user_id,
+        }
 
 @app.post("/prescriptions", status_code=status.HTTP_201_CREATED)
 def create_prescription(payload: PrescriptionCreate):
@@ -595,6 +696,81 @@ def get_user_reminders(user_id: int):
         session.commit()
 
     return out
+
+
+@app.get("/pharmacies")
+async def search_pharmacies(
+    latitude: float,
+    longitude: float,
+    radius: int = 5000,  # meters, default 5km
+):
+    """
+    Search for nearby pharmacies using Google Places API.
+    
+    Args:
+        latitude: User's latitude (-90 to 90)
+        longitude: User's longitude (-180 to 180)
+        radius: Search radius in meters (500 to 50000)
+    
+    Returns:
+        List of pharmacies with name, address, location, rating, etc.
+    """
+    # Validate inputs
+    if not (-90 <= latitude <= 90):
+        raise HTTPException(status_code=400, detail="Invalid latitude")
+    if not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="Invalid longitude")
+    if not (500 <= radius <= 50000):
+        raise HTTPException(status_code=400, detail="Radius must be between 500m and 50km")
+    
+    if not GOOGLE_PLACES_API_KEY:
+        raise HTTPException(
+            status_code=500, 
+            detail="Google Places API key not configured"
+        )
+    
+    # Build request to Google Places API
+    params = {
+        "location": f"{latitude},{longitude}",
+        "radius": radius,
+        "type": "pharmacy",
+        "key": GOOGLE_PLACES_API_KEY,
+    }
+    
+    try:
+        response = requests.get(PLACES_API_URL, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data.get("status") != "OK":
+            return {"pharmacies": [], "status": data.get("status"), "count": 0}
+        
+        # Transform results to our format
+        pharmacies = []
+        for place in data.get("results", []):
+            pharmacy = {
+                "place_id": place.get("place_id"),
+                "name": place.get("name"),
+                "address": place.get("vicinity"),
+                "latitude": place.get("geometry", {}).get("location", {}).get("lat"),
+                "longitude": place.get("geometry", {}).get("location", {}).get("lng"),
+                "rating": place.get("rating"),
+                "open_now": place.get("opening_hours", {}).get("open_now"),
+                "icon": place.get("icon"),
+            }
+            pharmacies.append(pharmacy)
+        
+        return {
+            "pharmacies": pharmacies,
+            "count": len(pharmacies),
+            "status": "OK"
+        }
+        
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to fetch pharmacies: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

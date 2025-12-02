@@ -13,7 +13,15 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rxminder.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "RxminderAPP needs your location to find nearby pharmacies.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RxminderAPP needs your location to find nearby pharmacies."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyAno2d_J_p-9poT2iwaUL3WMC71XJ5C7TY"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +29,17 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.rxminder.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAno2d_J_p-9poT2iwaUL3WMC71XJ5C7TY"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
