@@ -21,6 +21,23 @@ export type ReminderEntry = {
   reminder_id?: number;
 };
 
+export type Pharmacy = {
+  place_id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  rating?: number;
+  open_now?: boolean;
+  icon?: string;
+};
+
+export type PharmacySearchResult = {
+  pharmacies: Pharmacy[];
+  count: number;
+  status: string;
+};
+
 async function handleResponse(res: Response) {
   const text = await res.text();
   let body: any = null;
@@ -71,4 +88,19 @@ export async function deletePrescription(med_id: number) {
 export async function getRemindersForUser(user_id: number): Promise<ReminderEntry[]> {
   const res = await fetch(`${API_BASE}/reminders/${encodeURIComponent(String(user_id))}`, { method: "GET" });
   return handleResponse(res) as Promise<ReminderEntry[]>;
+}
+
+export async function getPharmacies(
+  latitude: number,
+  longitude: number,
+  radius: number = 5000
+): Promise<PharmacySearchResult> {
+  const params = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    radius: String(radius),
+  });
+  
+  const res = await fetch(`${API_BASE}/pharmacies?${params}`, { method: "GET" });
+  return handleResponse(res) as Promise<PharmacySearchResult>;
 }
