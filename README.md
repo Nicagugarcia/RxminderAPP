@@ -1,5 +1,5 @@
-# Foobar
-Rxminder App
+# App Details
+Rxminder App is an app that serves as a prescription tracker. It reminds the user when to take a medication and creates notifications automatically for how often you need to take a prescription per day.
 
 ## Installation
 
