@@ -6,6 +6,15 @@ import { getRemindersForUser, ReminderEntry } from './api';
 const TITLE = 'Time to take your medication!';
 const STORAGE_KEY = (reminderId: number) => `notif:${reminderId}`;
 
+// If server timestamp lacks timezone info, append EST offset (-05:00).
+function ensureEstOffset(iso: string): string {
+  if (!iso || typeof iso !== 'string') return iso;
+  const s = iso.trim();
+  // ends with Z or +HH:MM or -HH:MM
+  if (/[Zz]$/.test(s) || /[+\-]\d{2}:\d{2}$/.test(s)) return s;
+  return `${s}-05:00`;
+}
+
 // Compose notification body from reminder entry
 function composeBody(r: ReminderEntry) {
   const main = [r.med_name, r.dosage].filter(Boolean).join(' ');
@@ -46,9 +55,10 @@ async function removeMapping(reminderId: number) {
  */
 export async function scheduleLocalReminder(r: ReminderEntry) {
   if (!isValidReminder(r)) return null;
-  const dt = new Date(r.trigger_time);
+  const normalized = ensureEstOffset(r.trigger_time);
+  const dt = new Date(normalized);
   if (isNaN(dt.getTime())) {
-    console.warn('scheduleLocalReminder: invalid date for reminder', r);
+    console.warn('scheduleLocalReminder: invalid date for reminder', r, 'normalized:', normalized);
     return null;
   }
 
@@ -69,7 +79,7 @@ export async function scheduleLocalReminder(r: ReminderEntry) {
 
   const body = composeBody(r);
   try {
-    console.log('scheduleLocalReminder: scheduling', { reminder_id: r.reminder_id, trigger_time: r.trigger_time });
+    console.log('scheduleLocalReminder: scheduling', { reminder_id: r.reminder_id, trigger_time: r.trigger_time, normalized });
     const localId = await Notifications.scheduleNotificationAsync({
       content: {
         title: TITLE,
@@ -77,8 +87,8 @@ export async function scheduleLocalReminder(r: ReminderEntry) {
         sound: 'default',
         data: { reminder_id: r.reminder_id ?? null, trigger_time: r.trigger_time, med_name: r.med_name },
       },
-      // prefer Date trigger directly
-      trigger: new Date(r.trigger_time) as any,
+      // prefer Date trigger directly (use normalized ISO with timezone)
+      trigger: new Date(normalized) as any,
     });
 
     console.log('scheduleLocalReminder: scheduled localId', localId);

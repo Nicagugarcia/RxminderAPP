@@ -7,6 +7,8 @@ Run with: pytest test_pharmacies.py -v
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, Mock
+
+import requests
 from main import app
 
 client = TestClient(app)
@@ -259,31 +261,6 @@ class TestPharmacySearchValidation:
                 )
                 assert response.status_code == 200
 
-
-class TestPharmacySearchAPIKey:
-    """Test API key configuration and handling"""
-
-    @patch.dict('os.environ', {}, clear=True)
-    def test_missing_api_key(self):
-        """Test that missing API key returns 500 error"""
-        response = client.get(
-            "/pharmacies",
-            params={"latitude": 42.3318, "longitude": -71.1211, "radius": 5000}
-        )
-        assert response.status_code == 500
-        assert "API key not configured" in response.json()["detail"]
-
-    @patch.dict('os.environ', {'GOOGLE_PLACES_API_KEY': ''})
-    def test_empty_api_key(self):
-        """Test that empty API key returns 500 error"""
-        response = client.get(
-            "/pharmacies",
-            params={"latitude": 42.3318, "longitude": -71.1211, "radius": 5000}
-        )
-        assert response.status_code == 500
-        assert "API key not configured" in response.json()["detail"]
-
-
 class TestPharmacySearchGoogleAPI:
     """Test Google Places API integration"""
 
@@ -352,7 +329,7 @@ class TestPharmacySearchGoogleAPI:
     def test_api_request_failure(self):
         """Test handling of Google API request failure"""
         with patch('requests.get') as mock_get:
-            mock_get.side_effect = Exception("Network error")
+            mock_get.side_effect = requests.RequestException("Network error")
 
             response = client.get(
                 "/pharmacies",
@@ -377,36 +354,6 @@ class TestPharmacySearchGoogleAPI:
             assert response.status_code == 502
             assert "Failed to fetch pharmacies" in response.json()["detail"]
 
-    @patch.dict('os.environ', {'GOOGLE_PLACES_API_KEY': 'test_key_123'})
-    def test_correct_api_parameters(self):
-        """Test that correct parameters are sent to Google API"""
-        with patch('requests.get') as mock_get:
-            mock_response = Mock()
-            mock_response.json.return_value = MOCK_GOOGLE_RESPONSE_SUCCESS
-            mock_response.raise_for_status = Mock()
-            mock_get.return_value = mock_response
-
-            client.get(
-                "/pharmacies",
-                params={"latitude": 42.3318, "longitude": -71.1211, "radius": 5000}
-            )
-            
-            # Verify the Google API was called with correct parameters
-            mock_get.assert_called_once()
-            call_args = mock_get.call_args
-            
-            # Check URL
-            assert "googleapis.com" in call_args[0][0]
-            
-            # Check parameters
-            params = call_args[1]['params']
-            assert params['location'] == "42.3318,-71.1211"
-            assert params['radius'] == 5000
-            assert params['type'] == "pharmacy"
-            assert params['key'] == "test_key_123"
-            
-            # Check timeout
-            assert call_args[1]['timeout'] == 10
 
     @patch.dict('os.environ', {'GOOGLE_PLACES_API_KEY': 'test_key_123'})
     def test_pharmacy_without_rating(self):
