@@ -1,10 +1,25 @@
-**Rxminder App**
-The Rxminder app is an app that serves as a prescription tracker, allowing the user to keep track of when it is time to take your medicine! 
-**Running The App**
-In order to run the app:
-1:
-2:
-**Testing the App**
-In order to test the app:
-1:
-2:
+# Foobar
+Rxminder App
+
+## Installation
+
+Use the package manager  to install ______.
+
+```bash
+pip install 
+```
+
+## Testing
+
+```python
+import foobar
+
+# returns 'words'
+foobar.pluralize('word')
+
+# returns 'geese'
+foobar.pluralize('goose')
+
+# returns 'phenomenon'
+foobar.singularize('phenomena')
+```
