@@ -26,8 +26,10 @@ and try verifying again.
 ```bash
 coverage run -m pytest -q tests.py test_pharmacies.py
 ```
-This will run the tests using pytest and coverage will automatically track statement coverage in the background.
-
+This will run the tests using pytest and coverage will automatically track statement coverage in the background. For a less verbose output:
+```bash
+coverage run -m pytest -q --disable-warnings tests.py test_pharmacies.py
+```
 ### Getting statement coverage report
 ```bash
 coverage report
