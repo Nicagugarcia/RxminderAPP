@@ -1,7 +1,7 @@
 """
 Tests for the pharmacy search endpoint (/pharmacies)
 
-Run with: pytest test_pharmacies.py -v
+Run with: coverage run -m pytest -q test_pharmacies.py
 """
 
 import pytest

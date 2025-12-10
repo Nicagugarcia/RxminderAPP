@@ -1,3 +1,9 @@
+"""
+Tests for API endpoints
+
+Run with: coverage run -m pytest -q tests.py
+"""
+
 import json
 from pathlib import Path
 from datetime import date, timedelta

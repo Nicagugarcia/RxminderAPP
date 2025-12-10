@@ -1,4 +1,4 @@
-export const API_BASE = process.env.API_BASE || "http://127.0.0.1:8000"; // replace with your machine LAN IP when testing on device
+export const API_BASE = process.env.API_BASE || "http://127.0.0.1:8000";
 
 export type PrescriptionListEntry = {
   medication: {
