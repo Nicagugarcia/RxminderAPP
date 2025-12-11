@@ -3,11 +3,26 @@ Rxminder App is an app that serves as a prescription tracker. It reminds the use
 
 ## Installation
 
-Use the package manager  to install ______.
-
+Backend
+in one terminal:
 ```bash
-pip install 
+cd backend
+python -m venv .venv
+mac: source .venv/bin/activate 
+windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python seed.py
+uvicorn main:app --reload --port 8000
 ```
+Frontend
+in a separate terminal, run concurretly:
+```bash
+cd .\rxminder\
+npm install
+npm expo start
+```
+this will generate a QR code to scan with the device camera. 
+With Expo Go downloaded, it will open the app
 
 ## Testing
 
